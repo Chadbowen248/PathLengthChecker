@@ -81,29 +81,27 @@ namespace PathLengthCheckerGUI
 
 		private void btnBrowseForRootDirectory_Click(object sender, RoutedEventArgs e)
 		{
-			var folderDialog = new System.Windows.Forms.FolderBrowserDialog
+			var folderDialog = new Microsoft.Win32.OpenFolderDialog
 			{
-				Description = "Select the directory that contains the paths whose length you want to check...",
-				ShowNewFolderButton = false
+				Title = "Select the directory that contains the paths whose length you want to check..."
 			};
 
-			if (folderDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-				txtRootDirectory.Text = folderDialog.SelectedPath;
+			if (folderDialog.ShowDialog(this) == true)
+				txtRootDirectory.Text = folderDialog.FolderName;
 		}
 
 		private void btnBrowseForReplaceRootDirectory_Click(object sender, RoutedEventArgs e)
 		{
-			var folderDialog = new System.Windows.Forms.FolderBrowserDialog
+			var folderDialog = new Microsoft.Win32.OpenFolderDialog
 			{
-				Description = "Select the path that should replace the Starting Directory in scored results...",
-				ShowNewFolderButton = false
+				Title = "Select the path that should replace the Starting Directory in scored results..."
 			};
 
-			if (folderDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+			if (folderDialog.ShowDialog(this) == true)
 			{
-				txtReplaceRootDirectory.Text = folderDialog.SelectedPath;
+				txtReplaceRootDirectory.Text = folderDialog.FolderName;
 				if (string.IsNullOrWhiteSpace(txtStripPrefix.Text))
-					txtStripPrefix.Text = folderDialog.SelectedPath;
+					txtStripPrefix.Text = folderDialog.FolderName;
 			}
 		}
 
@@ -131,7 +129,7 @@ namespace PathLengthCheckerGUI
 			}
 			catch (Exception ex)
 			{
-				System.Windows.MessageBox.Show($"An error occurred while retrieving paths:{Environment.NewLine}{Environment.NewLine}{ex.Message}", "Error Occurred");
+				MessageBox.Show($"An error occurred while retrieving paths:{Environment.NewLine}{Environment.NewLine}{ex.Message}", "Error Occurred");
 				Debug.WriteLine(ex.ToString());
 			}
 
@@ -157,13 +155,13 @@ namespace PathLengthCheckerGUI
 			}
 			catch
 			{
-				System.Windows.MessageBox.Show($"The Starting Directory \"{rootDirectory}\" does not exist. Please specify a valid directory.", "Invalid Starting Directory");
+				MessageBox.Show($"The Starting Directory \"{rootDirectory}\" does not exist. Please specify a valid directory.", "Invalid Starting Directory");
 				return;
 			}
 
 			if (!Directory.Exists(rootDirectory))
 			{
-				System.Windows.MessageBox.Show($"The Starting Directory \"{rootDirectory}\" does not exist. Please specify a valid directory.", "Invalid Starting Directory");
+				MessageBox.Show($"The Starting Directory \"{rootDirectory}\" does not exist. Please specify a valid directory.", "Invalid Starting Directory");
 				return;
 			}
 
@@ -299,7 +297,7 @@ namespace PathLengthCheckerGUI
 			var asCsv = string.Equals(Path.GetExtension(dlg.FileName), ".csv", StringComparison.OrdinalIgnoreCase);
 			var text = BuildExportText(asCsv);
 			File.WriteAllText(dlg.FileName, text, Encoding.UTF8);
-			System.Windows.MessageBox.Show($"Exported {Paths.Count} path(s) to:\n{dlg.FileName}", "Export complete");
+			MessageBox.Show($"Exported {Paths.Count} path(s) to:\n{dlg.FileName}", "Export complete");
 		}
 
 		private string BuildExportText(bool asCsv)
@@ -339,7 +337,7 @@ namespace PathLengthCheckerGUI
 			{
 				try
 				{
-					System.Windows.Clipboard.SetText(text);
+					Clipboard.SetText(text);
 					return;
 				}
 				catch (Exception ex)
@@ -347,7 +345,7 @@ namespace PathLengthCheckerGUI
 					Debug.WriteLine(ex.ToString());
 					if (attempts == maxAttempts)
 					{
-						System.Windows.MessageBox.Show($"An error occurred while copying text to the clipboard:{Environment.NewLine}{Environment.NewLine}{ex.Message}", "Error Occurred Copying To Clipboard");
+						MessageBox.Show($"An error occurred while copying text to the clipboard:{Environment.NewLine}{Environment.NewLine}{ex.Message}", "Error Occurred Copying To Clipboard");
 					}
 				}
 				Thread.Sleep(millisecondsBetweenAttempts);
@@ -372,7 +370,7 @@ namespace PathLengthCheckerGUI
 		{
 			if (SelectedPath == null)
 			{
-				System.Windows.MessageBox.Show("No path selected.", "Cannot Open Directory");
+				MessageBox.Show("No path selected.", "Cannot Open Directory");
 				return;
 			}
 
@@ -387,7 +385,7 @@ namespace PathLengthCheckerGUI
 
 			if (string.IsNullOrWhiteSpace(directoryPath))
 			{
-				System.Windows.MessageBox.Show(
+				MessageBox.Show(
 					$"The following directory (or file's directory) either does not exist anymore, you don't have permissions to access it, or its path is greater than 260 characters, so it cannot be opened.{Environment.NewLine}{Environment.NewLine}{candidate}",
 					"Cannot Open Directory");
 			}
@@ -451,7 +449,7 @@ namespace PathLengthCheckerGUI
 					txtStripPrefix.Text = txtReplaceRootDirectory.Text.Trim();
 			}
 			chkIncludeLengthsOnCopy.IsChecked = true;
-			System.Windows.MessageBox.Show(
+			MessageBox.Show(
 				"OneDrive preset applied:\n" +
 				$"- Min path length = {PathLengthSearchOptions.OneDriveMaxPathLength}\n" +
 				"- Display = Destination (mock path)\n" +
@@ -460,19 +458,19 @@ namespace PathLengthCheckerGUI
 				"OneDrive preset");
 		}
 
-		private void Window_DragOver(object sender, System.Windows.DragEventArgs e)
+		private void Window_DragOver(object sender, DragEventArgs e)
 		{
-			if (e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop))
-				e.Effects = System.Windows.DragDropEffects.Copy;
+			if (e.Data.GetDataPresent(DataFormats.FileDrop))
+				e.Effects = DragDropEffects.Copy;
 			else
-				e.Effects = System.Windows.DragDropEffects.None;
+				e.Effects = DragDropEffects.None;
 			e.Handled = true;
 		}
 
-		private void Window_Drop(object sender, System.Windows.DragEventArgs e)
+		private void Window_Drop(object sender, DragEventArgs e)
 		{
-			if (!e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop)) return;
-			if (e.Data.GetData(System.Windows.DataFormats.FileDrop) is not string[] files || files.Length == 0) return;
+			if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+			if (e.Data.GetData(DataFormats.FileDrop) is not string[] files || files.Length == 0) return;
 			var path = files[0];
 			if (Directory.Exists(path))
 			{
