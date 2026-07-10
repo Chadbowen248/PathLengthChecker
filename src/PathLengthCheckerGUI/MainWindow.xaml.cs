@@ -39,6 +39,7 @@ namespace PathLengthCheckerGUI
 		{
 			_settings = UiSettings.Load();
 			ApplySettingsToUi(_settings);
+			ThemeManager.Apply(chkDarkMode.IsChecked == true);
 
 			if (cmbTypesToInclude.SelectedItem == null)
 				cmbTypesToInclude.SelectedItem = FileSystemTypes.All;
@@ -243,12 +244,31 @@ namespace PathLengthCheckerGUI
 			}
 		}
 
+		private static readonly string[] EmptyResultMessages =
+		{
+			"Yay — no work to do! Everything fits under the limit.",
+			"Zero long paths. Your folders are short and snappy. Go get coffee.",
+			"Nothing to clean up. The path-length monster goes hungry today.",
+			"All clear. No verbose folder names were harmed in this scan.",
+			"Empty results = happy tech. Tell the client they already nailed it.",
+			"No over-limit paths. Cue the confetti (budget version).",
+		};
+
 		private void DisplayResultsMetadata()
 		{
 			var timeSinceSearchingStarted = DateTime.Now - _timePathSearchingStarted;
-			var text = $"{Paths.Count} paths found in {timeSinceSearchingStarted:mm\\:ss\\.f}";
+			var cancelled = _searchCancellationTokenSource.IsCancellationRequested;
 
-			if (_searchCancellationTokenSource.IsCancellationRequested)
+			if (Paths.Count == 0 && !cancelled)
+			{
+				var funny = EmptyResultMessages[Random.Shared.Next(EmptyResultMessages.Length)];
+				txtNumberOfPaths.Text = $"0 paths found in {timeSinceSearchingStarted:mm\\:ss\\.f}  —  {funny}";
+				txtMinAndMaxPathLengths.Text = "Nothing over your min length filter. That is the dream.";
+				return;
+			}
+
+			var text = $"{Paths.Count} paths found in {timeSinceSearchingStarted:mm\\:ss\\.f}";
+			if (cancelled)
 				text += " - Search Cancelled";
 
 			txtNumberOfPaths.Text = text;
@@ -444,20 +464,46 @@ namespace PathLengthCheckerGUI
 			numMaxPathLength.Text = PathLengthSearchOptions.MaximumPathLengthMaxValue.ToString();
 			cmbDisplayMode.SelectedItem = PathDisplayMode.Destination;
 			chkStripPrefixOnCopy.IsChecked = true;
-			if (chkReplaceRootDirectory.IsChecked == true && !string.IsNullOrWhiteSpace(txtReplaceRootDirectory.Text))
-			{
-				if (string.IsNullOrWhiteSpace(txtStripPrefix.Text))
-					txtStripPrefix.Text = txtReplaceRootDirectory.Text.Trim();
-			}
 			chkIncludeLengthsOnCopy.IsChecked = true;
+
+			// Prefill Contoso example destination (from tooltip) so the field is not blank.
+			chkReplaceRootDirectory.IsChecked = true;
+			var example = PathLengthSearchOptions.ExampleOneDriveDestinationPath;
+			if (string.IsNullOrWhiteSpace(txtReplaceRootDirectory.Text)
+				|| IsPlaceholderOrExampleDestination(txtReplaceRootDirectory.Text))
+			{
+				txtReplaceRootDirectory.Text = example;
+			}
+			if (string.IsNullOrWhiteSpace(txtStripPrefix.Text)
+				|| IsPlaceholderOrExampleDestination(txtStripPrefix.Text))
+			{
+				txtStripPrefix.Text = txtReplaceRootDirectory.Text.Trim();
+			}
+
 			MessageBox.Show(
 				"Windows path preset applied:\n" +
 				$"- Min path length = {PathLengthSearchOptions.WindowsSafePathLength} (safe under 255 for shortcuts)\n" +
+				$"- Destination example prefilled: {txtReplaceRootDirectory.Text}\n" +
+				"  (edit Contoso / jdoe to the real tenant and user)\n" +
 				"- Display = Destination (mock path)\n" +
 				"- Strip prefix when copying = ON\n\n" +
-				"Set the destination replacement to the future OneDrive path, scan, then Copy/Export for the client.\n" +
+				"Scan, then Copy/Export for the client.\n" +
 				$"(OneDrive cloud alone can allow ~{PathLengthSearchOptions.OneDriveCloudPathLength}; raise Min length if that is all you care about.)",
 				"Windows path preset");
+		}
+
+		private static bool IsPlaceholderOrExampleDestination(string value)
+		{
+			var v = value.Trim();
+			return string.Equals(v, PathLengthSearchOptions.ExampleOneDriveDestinationPath, StringComparison.OrdinalIgnoreCase)
+				|| v.Contains("Contoso", StringComparison.OrdinalIgnoreCase)
+				|| v.Contains(@"\jdoe\", StringComparison.OrdinalIgnoreCase);
+		}
+
+		private void chkDarkMode_Changed(object sender, RoutedEventArgs e)
+		{
+			if (!IsLoaded) return;
+			ThemeManager.Apply(chkDarkMode.IsChecked == true);
 		}
 
 		private void Window_DragOver(object sender, DragEventArgs e)
@@ -504,6 +550,7 @@ namespace PathLengthCheckerGUI
 			chkStripPrefixOnCopy.IsChecked = s.StripPrefixOnCopy;
 			txtStripPrefix.Text = s.StripPrefixText ?? string.Empty;
 			chkIncludeLengthsOnCopy.IsChecked = s.IncludeLengthsOnCopy;
+			chkDarkMode.IsChecked = s.DarkMode;
 		}
 
 		private void SaveUiToSettings()
@@ -526,6 +573,7 @@ namespace PathLengthCheckerGUI
 			_settings.StripPrefixOnCopy = chkStripPrefixOnCopy.IsChecked ?? true;
 			_settings.StripPrefixText = txtStripPrefix.Text;
 			_settings.IncludeLengthsOnCopy = chkIncludeLengthsOnCopy.IsChecked ?? true;
+			_settings.DarkMode = chkDarkMode.IsChecked ?? false;
 		}
 	}
 }

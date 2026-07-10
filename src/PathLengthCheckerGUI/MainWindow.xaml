@@ -45,13 +45,17 @@
     <DockPanel Grid.Row="0" Margin="0,0,0,12">
       <StackPanel>
         <TextBlock Text="Path Length Checker" FontSize="22" FontWeight="SemiBold"/>
-        <TextBlock Text="Scan a share, mock the OneDrive destination, and export a clean cleanup list for clients."
-                   Foreground="#64748B" TextWrapping="Wrap" Margin="0,2,0,0"/>
+        <TextBlock Name="txtSubtitle" Text="Scan a share, mock the OneDrive destination, and export a clean cleanup list for clients."
+                   Foreground="{DynamicResource MutedText}" TextWrapping="Wrap" Margin="0,2,0,0"/>
       </StackPanel>
-      <Button DockPanel.Dock="Right" Content="Windows path preset (240)" Style="{StaticResource SecondaryButton}"
-              Click="btnOneDrivePreset_Click"
-              ToolTip="Sets Min Path Length to 240 (safe for Windows shortcuts / classic path limits; under 255). Also enables strip-on-copy and destination display. OneDrive cloud alone can allow ~400 if you only care about that."
-              VerticalAlignment="Center" Margin="12,0,0,0"/>
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+        <CheckBox Name="chkDarkMode" Content="Dark mode" VerticalAlignment="Center" Margin="0,0,12,0"
+                  Checked="chkDarkMode_Changed" Unchecked="chkDarkMode_Changed"
+                  ToolTip="Toggle light/dark display. Preference is remembered."/>
+        <Button Content="Windows path preset (240)" Style="{StaticResource SecondaryButton}"
+                Click="btnOneDrivePreset_Click" Margin="0"
+                ToolTip="Sets Min Path Length to 240, enables destination replacement, prefills the Contoso OneDrive example path, enables strip-on-copy, and destination display."/>
+      </StackPanel>
     </DockPanel>
 
     <!-- Scan options -->
@@ -138,7 +142,7 @@
                     Click="btnBrowseForReplaceRootDirectory_Click" Margin="6,0,0,0"
                     IsEnabled="{Binding ElementName=chkReplaceRootDirectory, Path=IsChecked}"/>
           </Grid>
-          <TextBox Grid.Row="2" Name="txtReplaceRootDirectory"
+          <TextBox Grid.Row="2" Name="txtReplaceRootDirectory" Margin="0,0,160,0"
                    IsEnabled="{Binding ElementName=chkReplaceRootDirectory, Path=IsChecked}"
                    ToolTip="e.g. C:\Users\jdoe\OneDrive - Contoso\General"/>
           <CheckBox Grid.Row="2" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
@@ -214,7 +218,7 @@
           </Grid.ColumnDefinitions>
           <StackPanel>
             <TextBlock Name="txtNumberOfPaths" Text=""/>
-            <TextBlock Name="txtMinAndMaxPathLengths" Text="" Foreground="#64748B"/>
+            <TextBlock Name="txtMinAndMaxPathLengths" Text="" Foreground="{DynamicResource MutedText}"/>
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal">
             <CheckBox Name="chkIncludeLengthsOnCopy" Content="Include lengths" VerticalAlignment="Center" Margin="0,0,12,0"/>
@@ -228,7 +232,7 @@
       </Grid>
     </GroupBox>
 
-    <TextBlock Grid.Row="4" Margin="0,8,0,0" Foreground="#94A3B8" FontSize="11"
+    <TextBlock Grid.Row="4" Name="txtFooter" Margin="0,8,0,0" Foreground="{DynamicResource MutedText}" FontSize="11"
                Text="Fork of deadlydog/PathLengthChecker (MIT). Length uses destination replacement; strip-on-copy is for client-friendly lists only."/>
   </Grid>
 </Window>

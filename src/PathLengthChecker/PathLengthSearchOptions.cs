@@ -33,6 +33,12 @@ namespace PathLengthChecker
 		public const int OneDriveCloudPathLength = 400;
 
 		/// <summary>
+		/// Example destination path used when applying the Windows/OneDrive preset (matches UI tooltips).
+		/// Replace Contoso / jdoe with the real tenant and user before scanning for production.
+		/// </summary>
+		public const string ExampleOneDriveDestinationPath = @"C:\Users\jdoe\OneDrive - Contoso\General";
+
+		/// <summary>
 		/// Indicates the type of result that is output once the search completes.
 		/// Valid values are MinLength, MaxLength, or Paths. Default is Paths.
 		/// </summary>

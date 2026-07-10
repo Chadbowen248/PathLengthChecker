@@ -19,7 +19,9 @@ Upstream already supported **Replace the Starting Directory in the returned path
 - **Display modes** after scan (Destination / Relative / Original) without re-scanning
 - **Strip prefix when copying/exporting** (client handoff)
 - **Export to file** (.csv / .txt)
-- **Windows path preset** (min length **240** for shortcut-safe cleanup lists, strip-on-copy, destination display)
+- **Windows path preset** (min length **240**, prefills Contoso OneDrive example destination, strip-on-copy, destination display)
+- **Dark mode** toggle
+- Silly victory message when a scan finds nothing over the limit
 - Modernized WPF UI
 
 ## Download (like the original release .exe)

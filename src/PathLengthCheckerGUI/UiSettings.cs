@@ -29,6 +29,7 @@ namespace PathLengthCheckerGUI
 		public bool StripPrefixOnCopy { get; set; } = true;
 		public string StripPrefixText { get; set; } = string.Empty;
 		public bool IncludeLengthsOnCopy { get; set; } = true;
+		public bool DarkMode { get; set; }
 
 		private static string SettingsPath =>
 			Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

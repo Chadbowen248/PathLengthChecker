@@ -3,6 +3,9 @@
 ## Unreleased
 
 - Default Windows path preset min length is **240** (shortcut-safe under 255), not 400. OneDrive cloud ~400 remains documented as an optional higher ceiling.
+- Windows path preset prefills destination + strip fields with the Contoso OneDrive example path.
+- Dark mode toggle (remembered between sessions).
+- Funny empty-results message when nothing exceeds the min length filter.
 
 ## v2.0.0 — OneDrive migration fork
 
