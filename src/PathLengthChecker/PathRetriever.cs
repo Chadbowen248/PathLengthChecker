@@ -1,7 +1,5 @@
-﻿using Alphaleonis.Win32.Filesystem;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
+using System.IO;
 using System.Threading;
 using SearchOption = System.IO.SearchOption;
 
@@ -9,80 +7,59 @@ namespace PathLengthChecker
 {
 	/// <summary>
 	/// Class used to retrieve file system objects in a given path.
+	/// Returns original on-disk paths only; formatting is applied later by PathFormatter.
 	/// </summary>
 	public static class PathRetriever
 	{
 		/// <summary>
-		/// Gets the paths.
+		/// Gets the original paths under the root directory.
 		/// </summary>
-		/// <param name="searchOptions">The search options to use.</param>
 		public static IEnumerable<string> GetPaths(PathSearchOptions searchOptions, CancellationToken cancellationToken)
 		{
 			if (!Directory.Exists(searchOptions.RootDirectory))
 			{
-				throw new System.IO.DirectoryNotFoundException($"The specified root directory '{searchOptions.RootDirectory}' does not exist. Please provide a valid directory.");
+				throw new DirectoryNotFoundException($"The specified root directory '{searchOptions.RootDirectory}' does not exist. Please provide a valid directory.");
 			}
 
-			// If no Search Pattern was provided, then find everything.
 			if (string.IsNullOrEmpty(searchOptions.SearchPattern))
 				searchOptions.SearchPattern = "*";
 
-			// Get the paths according to the search parameters
-			var paths = GetPathsUsingAlphaFs(searchOptions);
-
-			// Return each of the paths, replacing the Root Directory if specified to do so.
-			foreach (var path in paths)
+			foreach (var path in EnumeratePaths(searchOptions))
 			{
-				// If we've been asked to stop searching, just return.
 				if (cancellationToken.IsCancellationRequested)
 					yield break;
 
-				var potentiallyTransformedPath = path;
-
-				if (searchOptions.RootDirectoryReplacement != null)
-					potentiallyTransformedPath = potentiallyTransformedPath.Replace(searchOptions.RootDirectory, searchOptions.RootDirectoryReplacement);
-
-				if (searchOptions.UrlEncodePaths)
-					potentiallyTransformedPath = System.Uri.EscapeDataString(potentiallyTransformedPath);
-
-				yield return potentiallyTransformedPath;
+				yield return path;
 			}
 		}
 
-		private static IEnumerable<string> GetPathsUsingAlphaFs(PathSearchOptions searchOptions)
+		private static IEnumerable<string> EnumeratePaths(PathSearchOptions searchOptions)
 		{
-			DirectoryEnumerationOptions options = (DirectoryEnumerationOptions)searchOptions.TypesToGet |
-				DirectoryEnumerationOptions.ContinueOnException | DirectoryEnumerationOptions.SkipReparsePoints;
-
-			if (searchOptions.SearchOption == SearchOption.AllDirectories)
-				options |= DirectoryEnumerationOptions.Recursive;
-
-			var paths = Directory.EnumerateFileSystemEntries(searchOptions.RootDirectory, searchOptions.SearchPattern, options);
-			return paths;
-		}
-
-		private static IEnumerable<string> GetPathsUsingSystemIo(PathSearchOptions searchOptions)
-		{
-			// Get the paths according to the search parameters
-			var paths = Enumerable.Empty<string>();
-
-			switch (searchOptions.TypesToGet)
+			var enumerationOptions = new EnumerationOptions
 			{
-				default:
-				case FileSystemTypes.All:
-					paths = Directory.GetFileSystemEntries(searchOptions.RootDirectory, searchOptions.SearchPattern, searchOptions.SearchOption);
-					break;
+				RecurseSubdirectories = searchOptions.SearchOption == SearchOption.AllDirectories,
+				IgnoreInaccessible = true,
+				// Skip reparse points (junctions/symlinks) similar to AlphaFS SkipReparsePoints.
+				AttributesToSkip = FileAttributes.ReparsePoint,
+				MatchCasing = MatchCasing.CaseInsensitive,
+				MatchType = MatchType.Simple,
+				ReturnSpecialDirectories = false
+			};
 
-				case FileSystemTypes.Directories:
-					paths = Directory.GetDirectories(searchOptions.RootDirectory, searchOptions.SearchPattern, searchOptions.SearchOption);
-					break;
-
-				case FileSystemTypes.Files:
-					paths = Directory.GetFiles(searchOptions.RootDirectory, searchOptions.SearchPattern, searchOptions.SearchOption);
-					break;
+			// Enumerate files and/or directories based on TypesToGet.
+			if (searchOptions.TypesToGet == FileSystemTypes.Files)
+			{
+				return Directory.EnumerateFiles(searchOptions.RootDirectory, searchOptions.SearchPattern, enumerationOptions);
 			}
 
-			return paths;
+			if (searchOptions.TypesToGet == FileSystemTypes.Directories)
+			{
+				return Directory.EnumerateDirectories(searchOptions.RootDirectory, searchOptions.SearchPattern, enumerationOptions);
+			}
+
+			// All: files + directories matching the pattern.
+			// EnumerateFileSystemEntries returns both.
+			return Directory.EnumerateFileSystemEntries(searchOptions.RootDirectory, searchOptions.SearchPattern, enumerationOptions);
 		}
 	}
 }

@@ -1,80 +1,61 @@
-﻿using PathLengthChecker;
-using System;
-using System.Collections.Generic;
+using PathLengthChecker;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
-using System.Windows.Navigation;
+using SearchOption = System.IO.SearchOption;
 
 namespace PathLengthCheckerGUI
 {
-	/// <summary>
-	/// Interaction logic for MainWindow.xaml
-	/// </summary>
 	public partial class MainWindow : Window, INotifyPropertyChanged
 	{
-		#region Notify Property Changed
-		/// <summary>
-		/// Inherited event from INotifyPropertyChanged.
-		/// </summary>
-		public event PropertyChangedEventHandler PropertyChanged;
+		public event PropertyChangedEventHandler? PropertyChanged;
 
-		/// <summary>
-		/// Fires the PropertyChanged event of INotifyPropertyChanged with the given property name.
-		/// </summary>
-		/// <param name="propertyName">The name of the property to fire the event against</param>
 		public void NotifyPropertyChanged(string propertyName)
 		{
-			if (PropertyChanged != null)
-				PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+			PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 		}
-		#endregion
 
 		private DateTime _timePathSearchingStarted = DateTime.MinValue;
-		private CancellationTokenSource _searchCancellationTokenSource = new CancellationTokenSource();
+		private CancellationTokenSource _searchCancellationTokenSource = new();
+		private UiSettings _settings = new();
+		private string _lastRootDirectory = string.Empty;
+		private PathSearchOptions _lastScoreOptions = new();
 
 		public MainWindow()
 		{
 			InitializeComponent();
-			this.DataContext = this;
-
+			DataContext = this;
 			SetWindowTitle();
 		}
+
 		private void Window_Loaded(object sender, RoutedEventArgs e)
 		{
-			LoadColumnSortDescriptionsFromSettings();
+			_settings = UiSettings.Load();
+			ApplySettingsToUi(_settings);
+
+			if (cmbTypesToInclude.SelectedItem == null)
+				cmbTypesToInclude.SelectedItem = FileSystemTypes.All;
+			if (cmbDisplayMode.SelectedItem == null)
+				cmbDisplayMode.SelectedItem = PathDisplayMode.Destination;
 		}
 
-		private void Window_Closed(object sender, EventArgs e)
+		private void Window_Closed(object? sender, EventArgs e)
 		{
-			SaveColumnSortDescriptionsToSettings();
+			SaveUiToSettings();
+			_settings.Save();
 		}
 
 		private void SetWindowTitle()
 		{
-			this.Title = "Path Length Checker v" + Assembly.GetEntryAssembly().GetName().Version.ToString(3) + " - Written by Daniel Schroeder";
-		}
-
-		private void LoadColumnSortDescriptionsFromSettings()
-		{
-			var previousGridColumnSortDescriptions = Properties.Settings.Default.ResultsGridColumnSortDescriptionCollection ?? SortDescriptionCollection.Empty;
-			SetGridColumnSortDescriptions(previousGridColumnSortDescriptions);
-		}
-
-		private void SaveColumnSortDescriptionsToSettings()
-		{
-			var gridColumnSortDescriptions = GetCurrentGridColumnSortDescriptions();
-			Properties.Settings.Default.ResultsGridColumnSortDescriptionCollection = gridColumnSortDescriptions;
+			var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "2.0.0";
+			Title = $"Path Length Checker v{version} — OneDrive migration helpers";
 		}
 
 		public ObservableCollection<PathInfo> Paths
@@ -86,83 +67,67 @@ namespace PathLengthCheckerGUI
 				NotifyPropertyChanged(nameof(Paths));
 			}
 		}
-		private ObservableCollection<PathInfo> _paths = new ObservableCollection<PathInfo>();
+		private ObservableCollection<PathInfo> _paths = new();
 
-		/// <summary>
-		/// This returns the same items as the Paths property, but sorted however the UI happens to be sorted.
-		/// </summary>
 		private IEnumerable<PathInfo> PathsFromUiDataGrid => dgPaths.Items.Cast<PathInfo>();
 
-		public PathInfo SelectedPath
+		public PathInfo? SelectedPath
 		{
-			get { return (PathInfo)GetValue(SelectedPathProperty); }
-			set { SetValue(SelectedPathProperty, value); }
+			get => (PathInfo?)GetValue(SelectedPathProperty);
+			set => SetValue(SelectedPathProperty, value);
 		}
-		public static readonly DependencyProperty SelectedPathProperty = DependencyProperty.Register("SelectedPath", typeof(PathInfo), typeof(MainWindow), new UIPropertyMetadata(new PathInfo()));
+		public static readonly DependencyProperty SelectedPathProperty =
+			DependencyProperty.Register(nameof(SelectedPath), typeof(PathInfo), typeof(MainWindow), new PropertyMetadata(null));
 
-		/// <summary>
-		/// Handles the Click event of the btnBrowseForRootDirectory control.
-		/// </summary>
-		/// <param name="sender">The source of the event.</param>
-		/// <param name="e">The <see cref="RoutedEventArgs"/> instance containing the event data.</param>
 		private void btnBrowseForRootDirectory_Click(object sender, RoutedEventArgs e)
 		{
-			// Setup the prompt
 			var folderDialog = new System.Windows.Forms.FolderBrowserDialog
 			{
 				Description = "Select the directory that contains the paths whose length you want to check...",
 				ShowNewFolderButton = false
 			};
 
-			// If the user selected a folder, put it in the Root Directory text box.
 			if (folderDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
 				txtRootDirectory.Text = folderDialog.SelectedPath;
 		}
 
-		/// <summary>
-		/// Handles the Click event of the btnBrowseForReplaceRootDirectory control.
-		/// </summary>
-		/// <param name="sender">The source of the event.</param>
-		/// <param name="e">The <see cref="RoutedEventArgs"/> instance containing the event data.</param>
 		private void btnBrowseForReplaceRootDirectory_Click(object sender, RoutedEventArgs e)
 		{
-			// Setup the prompt
 			var folderDialog = new System.Windows.Forms.FolderBrowserDialog
 			{
-				Description = "Select the directory that you want to use to replace the Starting Directory in the returned paths...",
+				Description = "Select the path that should replace the Starting Directory in scored results...",
 				ShowNewFolderButton = false
 			};
 
-			// If the user selected a folder, put it in the Replace Root Directory text box.
 			if (folderDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+			{
 				txtReplaceRootDirectory.Text = folderDialog.SelectedPath;
+				if (string.IsNullOrWhiteSpace(txtStripPrefix.Text))
+					txtStripPrefix.Text = folderDialog.SelectedPath;
+			}
 		}
 
-		/// <summary>
-		/// Handles the Click event of the btnGetPathLengths control.
-		/// </summary>
-		/// <param name="sender">The source of the event.</param>
-		/// <param name="e">The <see cref="RoutedEventArgs"/> instance containing the event data.</param>
 		private async void btnGetPathLengths_Click(object sender, RoutedEventArgs e)
 		{
-			// Show the Cancellation button while we search.
 			_searchCancellationTokenSource = new CancellationTokenSource();
 			btnGetPathLengths.IsEnabled = false;
 			btnGetPathLengths.Visibility = Visibility.Collapsed;
 			btnCancelGetPathLengths.IsEnabled = true;
 			btnCancelGetPathLengths.Visibility = Visibility.Visible;
 
-			// Clear any previous paths out.
 			Paths.Clear();
 			txtNumberOfPaths.Text = string.Empty;
 			txtMinAndMaxPathLengths.Text = string.Empty;
 
 			RecordAndDisplayTimeSearchStarted();
 
-			// Search for all paths that match the search criteria.
 			try
 			{
-				await BuildSearchOptionsAndGetPaths(txtRootDirectory.Text.Trim(), txtReplaceRootDirectory.Text.Trim(), txtSearchPattern.Text, _searchCancellationTokenSource.Token);
+				await BuildSearchOptionsAndGetPaths(
+					txtRootDirectory.Text.Trim(),
+					txtReplaceRootDirectory.Text.Trim(),
+					txtSearchPattern.Text,
+					_searchCancellationTokenSource.Token);
 			}
 			catch (Exception ex)
 			{
@@ -172,7 +137,6 @@ namespace PathLengthCheckerGUI
 
 			DisplayResultsMetadata();
 
-			// Restore the search button.
 			btnGetPathLengths.IsEnabled = true;
 			btnGetPathLengths.Visibility = Visibility.Visible;
 			btnCancelGetPathLengths.IsEnabled = false;
@@ -182,12 +146,9 @@ namespace PathLengthCheckerGUI
 		private void RecordAndDisplayTimeSearchStarted()
 		{
 			_timePathSearchingStarted = DateTime.Now;
-			txtNumberOfPaths.Text = $"Started searching at {_timePathSearchingStarted.ToString("h:mm:ss tt")}...";
+			txtNumberOfPaths.Text = $"Started searching at {_timePathSearchingStarted:h:mm:ss tt}...";
 		}
 
-		/// <summary>
-		/// Gets the paths and displays them on the UI.
-		/// </summary>
 		private async Task BuildSearchOptionsAndGetPaths(string rootDirectory, string rootDirectoryReplacement, string searchPattern, CancellationToken cancellationToken)
 		{
 			try
@@ -206,165 +167,172 @@ namespace PathLengthCheckerGUI
 				return;
 			}
 
-			int minPathLength = numMinPathLength.Value ?? 0;
-			int maxPathLength = numMaxPathLength.Value ?? PathLengthSearchOptions.MaximumPathLengthMaxValue;
+			if (!int.TryParse(numMinPathLength.Text.Trim(), out int minPathLength))
+				minPathLength = 0;
+			if (!int.TryParse(numMaxPathLength.Text.Trim(), out int maxPathLength))
+				maxPathLength = PathLengthSearchOptions.MaximumPathLengthMaxValue;
 
-			// If we should NOT be replacing the Root Directory text, make sure we don't pass anything in for that parameter.
 			if (!(chkReplaceRootDirectory.IsChecked ?? false))
-				rootDirectoryReplacement = null;
+				rootDirectoryReplacement = null!;
 
-			// Build the options to search with.
+			var displayMode = cmbDisplayMode.SelectedItem is PathDisplayMode dm ? dm : PathDisplayMode.Destination;
+
 			var searchOptions = new PathLengthSearchOptions()
 			{
 				RootDirectory = rootDirectory,
 				SearchPattern = searchPattern,
 				SearchOption = (chkIncludeSubdirectories.IsChecked ?? false) ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly,
-				TypesToGet = (FileSystemTypes)cmbTypesToInclude.SelectedValue,
+				TypesToGet = cmbTypesToInclude.SelectedValue is FileSystemTypes t ? t : FileSystemTypes.All,
 				RootDirectoryReplacement = rootDirectoryReplacement,
-				UrlEncodePaths = (chkUrlEncodePaths.IsChecked ?? false),
+				UrlEncodePaths = chkUrlEncodePaths.IsChecked ?? false,
 				MinimumPathLength = minPathLength,
-				MaximumPathLength = maxPathLength
+				MaximumPathLength = maxPathLength,
+				DisplayMode = displayMode
 			};
 
-			// Get the paths in a background task so we don't lock the UI.
+			_lastRootDirectory = rootDirectory;
+			_lastScoreOptions = new PathSearchOptions
+			{
+				RootDirectory = rootDirectory,
+				RootDirectoryReplacement = rootDirectoryReplacement,
+				UrlEncodePaths = searchOptions.UrlEncodePaths
+			};
+
+			// If strip prefix empty and replacement set, default strip to replacement.
+			if (string.IsNullOrWhiteSpace(txtStripPrefix.Text) && !string.IsNullOrEmpty(rootDirectoryReplacement))
+				txtStripPrefix.Text = rootDirectoryReplacement;
+
 			var newPaths = await Task.Run(() =>
 			{
 				var paths = PathLengthChecker.PathLengthChecker.GetPathsWithLengths(searchOptions, cancellationToken);
 				return new ObservableCollection<PathInfo>(paths.ToList());
 			}, cancellationToken);
 
-			// Assigning Paths to a new ObservableCollection wipes out the column sorting in the CollectionViewSource.
-			// Ideally we would just use Paths.Add() to repopulate the list, which would preserve the sorting, but it takes forever when there's a lot of items.
-			// So instead we backup the CollectionViewSource sorting before assigning Paths to a new ObservableCollection, and then restore it after.
-			var previousColumnSortDescriptions = GetCurrentGridColumnSortDescriptions().ToList();
-
 			Paths = newPaths;
-
-			// Restore the previous column sort directions on the GUI DataGrid.
-			SetGridColumnSortDescriptions(previousColumnSortDescriptions);
+			ApplyDisplayModeToPaths();
+			SetDefaultSortLongestFirst();
 		}
 
-		private SortDescriptionCollection GetCurrentGridColumnSortDescriptions()
+		private void ApplyDisplayModeToPaths()
 		{
-			var collectionView = CollectionViewSource.GetDefaultView(dgPaths.ItemsSource);
-			return collectionView.SortDescriptions;
+			var mode = cmbDisplayMode.SelectedItem is PathDisplayMode dm ? dm : PathDisplayMode.Destination;
+			foreach (var p in Paths)
+			{
+				p.DisplayPath = PathFormatter.GetDisplayPath(p, _lastRootDirectory, mode);
+			}
+			// Refresh grid bindings
+			CollectionViewSource.GetDefaultView(dgPaths.ItemsSource)?.Refresh();
 		}
 
-		private void SetGridColumnSortDescriptions(SortDescriptionCollection sortDescriptions)
+		private void SetDefaultSortLongestFirst()
 		{
-			SetGridColumnSortDescriptions(sortDescriptions.ToList());
-		}
-
-		private void SetGridColumnSortDescriptions(IEnumerable<SortDescription> sortDescriptions)
-		{
-			var collectionView = CollectionViewSource.GetDefaultView(dgPaths.ItemsSource);
-			collectionView.SortDescriptions.Clear();
-			sortDescriptions.ToList().ForEach(collectionView.SortDescriptions.Add);
-
-			// We need to manually update the sort direction of each column on the grid to show it's sorting glyph.
+			var view = CollectionViewSource.GetDefaultView(dgPaths.ItemsSource);
+			if (view == null) return;
+			using (view.DeferRefresh())
+			{
+				view.SortDescriptions.Clear();
+				view.SortDescriptions.Add(new SortDescription(nameof(PathInfo.Length), ListSortDirection.Descending));
+				view.SortDescriptions.Add(new SortDescription(nameof(PathInfo.DisplayPath), ListSortDirection.Ascending));
+			}
 			foreach (var column in dgPaths.Columns)
 			{
-				var columnsSortDescription = sortDescriptions.FirstOrDefault(c => string.Equals(c.PropertyName, column.SortMemberPath));
-				if (columnsSortDescription.PropertyName != null)
-				{
-					column.SortDirection = columnsSortDescription.Direction;
-				}
+				if (column.SortMemberPath == nameof(PathInfo.Length))
+					column.SortDirection = ListSortDirection.Descending;
+				else if (column.SortMemberPath == nameof(PathInfo.DisplayPath))
+					column.SortDirection = ListSortDirection.Ascending;
 				else
-				{
 					column.SortDirection = null;
-				}
 			}
 		}
 
 		private void DisplayResultsMetadata()
 		{
-			// Display the number of paths found.
 			var timeSinceSearchingStarted = DateTime.Now - _timePathSearchingStarted;
-			var text = $"{Paths.Count} paths found in {timeSinceSearchingStarted.ToString(@"mm\:ss\.f")}";
+			var text = $"{Paths.Count} paths found in {timeSinceSearchingStarted:mm\\:ss\\.f}";
 
-			// If the user cancelled the search part way through, indicate that.
 			if (_searchCancellationTokenSource.IsCancellationRequested)
-			{
 				text += " - Search Cancelled";
-			}
 
-			this.txtNumberOfPaths.Text = text;
+			txtNumberOfPaths.Text = text;
 
-			// Display the shortest and longest path lengths.
 			int shortestPathLength = Paths.Count > 0 ? Paths.Min(p => p.Length) : 0;
 			int longestPathLength = Paths.Count > 0 ? Paths.Max(p => p.Length) : 0;
-			txtMinAndMaxPathLengths.Text = string.Format("Shortest Path: {0}, Longest Path: {1} characters", shortestPathLength, longestPathLength);
+			int over400 = Paths.Count(p => p.Length > PathLengthSearchOptions.OneDriveMaxPathLength);
+			txtMinAndMaxPathLengths.Text =
+				$"Shortest: {shortestPathLength}, Longest: {longestPathLength} characters" +
+				(over400 > 0 ? $"  |  {over400} over OneDrive 400-char limit" : string.Empty);
 		}
 
-		private void splitbtnCopyToClipboard_Click(object sender, RoutedEventArgs e)
+		private void cmbDisplayMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
 		{
-			var text = GetPathsFromUiDataGridAsString(includeLength: true);
+			if (!IsLoaded || Paths.Count == 0) return;
+			ApplyDisplayModeToPaths();
+		}
+
+		private void chkStripPrefixOnCopy_Changed(object sender, RoutedEventArgs e)
+		{
+			// No re-scan needed; only affects copy/export.
+		}
+
+		private void btnCopyPaths_Click(object sender, RoutedEventArgs e)
+		{
+			var text = BuildExportText(asCsv: false);
 			SetClipboardText(text);
 		}
 
-		private void btnCopyToClipboardWithoutLengths_Click(object sender, RoutedEventArgs e)
+		private void btnCopyCsv_Click(object sender, RoutedEventArgs e)
 		{
-			var text = GetPathsFromUiDataGridAsString(includeLength: false);
+			var text = BuildExportText(asCsv: true);
 			SetClipboardText(text);
-			CloseCopyToClipboardSplitButtonDropDown();
 		}
 
-		private void btnCopyToClipboardAsCsv_Click(object sender, RoutedEventArgs e)
+		private void btnExport_Click(object sender, RoutedEventArgs e)
 		{
-			var text = GetPathsFromUiDataGridAsCsvString(includeLength: true);
-			SetClipboardText(text);
-			CloseCopyToClipboardSplitButtonDropDown();
-		}
-
-		private void btnCopyToClipboardWithoutLengthsAsCsv_Click(object sender, RoutedEventArgs e)
-		{
-			var text = GetPathsFromUiDataGridAsCsvString(includeLength: false);
-			SetClipboardText(text);
-			CloseCopyToClipboardSplitButtonDropDown();
-		}
-
-		private void CloseCopyToClipboardSplitButtonDropDown()
-		{
-			splitbtnCopyToClipboard.IsOpen = false;
-		}
-
-		private string GetPathsFromUiDataGridAsString(bool includeLength)
-		{
-			var text = new StringBuilder();
-			foreach (var path in PathsFromUiDataGrid)
+			var dlg = new Microsoft.Win32.SaveFileDialog
 			{
-				var item = includeLength ? $"{path.Length}: {path.Path}" : path.Path;
-				text.AppendLine(item);
-			}
-			return text.ToString().Trim();
+				Filter = "CSV (*.csv)|*.csv|Text (*.txt)|*.txt|All files (*.*)|*.*",
+				FileName = "path-length-report",
+				DefaultExt = ".csv"
+			};
+			if (dlg.ShowDialog() != true) return;
+
+			var asCsv = string.Equals(Path.GetExtension(dlg.FileName), ".csv", StringComparison.OrdinalIgnoreCase);
+			var text = BuildExportText(asCsv);
+			File.WriteAllText(dlg.FileName, text, Encoding.UTF8);
+			MessageBox.Show($"Exported {Paths.Count} path(s) to:\n{dlg.FileName}", "Export complete");
 		}
 
-		private string GetPathsFromUiDataGridAsCsvString(bool includeLength)
+		private string BuildExportText(bool asCsv)
 		{
-			var text = new StringBuilder();
+			var mode = cmbDisplayMode.SelectedItem is PathDisplayMode dm ? dm : PathDisplayMode.Destination;
+			var strip = chkStripPrefixOnCopy.IsChecked ?? false;
+			var stripText = string.IsNullOrWhiteSpace(txtStripPrefix.Text)
+				? txtReplaceRootDirectory.Text.Trim()
+				: txtStripPrefix.Text.Trim();
+			var includeLength = chkIncludeLengthsOnCopy.IsChecked ?? true;
 
-			var header = includeLength ?
-					"Length,\"Path\"" :
-					"\"Path\"";
-			text.AppendLine(header);
-
-			foreach (var path in PathsFromUiDataGrid)
+			if (asCsv)
 			{
-				var item = includeLength ?
-					$"{path.Length},\"{path.Path}\"" :
-					$"\"{path.Path}\"";
-				text.AppendLine(item);
+				return PathFormatter.FormatPathsAsCsv(
+					PathsFromUiDataGrid,
+					_lastRootDirectory,
+					mode,
+					includeLength,
+					strip,
+					strip ? stripText : null);
 			}
-			return text.ToString().Trim();
+
+			return PathFormatter.FormatPathsAsPlainText(
+				PathsFromUiDataGrid,
+				_lastRootDirectory,
+				mode,
+				includeLength,
+				strip,
+				strip ? stripText : null);
 		}
 
-		/// <summary>
-		/// Handles threading issues and swallows exceptions.
-		/// </summary>
-		/// <param name="text">A string for the clipboard</param>
 		private static void SetClipboardText(string text)
 		{
-			// Copying to the clipboard can be unreliable, so we need to implement retries: https://stackoverflow.com/a/69081/602585
 			int maxAttempts = 100;
 			int millisecondsBetweenAttempts = 10;
 			for (int attempts = 1; attempts <= maxAttempts; attempts++)
@@ -377,13 +345,12 @@ namespace PathLengthCheckerGUI
 				catch (Exception ex)
 				{
 					Debug.WriteLine(ex.ToString());
-
 					if (attempts == maxAttempts)
 					{
 						MessageBox.Show($"An error occurred while copying text to the clipboard:{Environment.NewLine}{Environment.NewLine}{ex.Message}", "Error Occurred Copying To Clipboard");
 					}
 				}
-				System.Threading.Thread.Sleep(millisecondsBetweenAttempts);
+				Thread.Sleep(millisecondsBetweenAttempts);
 			}
 		}
 
@@ -396,38 +363,44 @@ namespace PathLengthCheckerGUI
 			}
 		}
 
-		private void dgPaths_LoadingRow(object sender, System.Windows.Controls.DataGridRowEventArgs e)
+		private void dgPaths_LoadingRow(object sender, DataGridRowEventArgs e)
 		{
-			// Show row numbers in the grid.
 			e.Row.Header = (e.Row.GetIndex() + 1).ToString();
 		}
 
 		private void MenuItem_OpenDirectoryInFileExplorer_Click(object sender, RoutedEventArgs e)
 		{
-			// Get the directory path, as we can't open a file in File Explorer.
+			if (SelectedPath == null)
+			{
+				MessageBox.Show("No path selected.", "Cannot Open Directory");
+				return;
+			}
+
+			// Always use OriginalPath so Explorer works even when display is replaced/stripped.
+			var candidate = SelectedPath.OriginalPath;
 			var directoryPath = string.Empty;
-			if (Directory.Exists(SelectedPath.Path))
-			{
-				directoryPath = SelectedPath.Path;
-			}
-			else if (File.Exists(SelectedPath.Path))
-			{
-				directoryPath = Directory.GetParent(SelectedPath.Path).FullName;
-			}
+
+			if (Directory.Exists(candidate))
+				directoryPath = candidate;
+			else if (File.Exists(candidate))
+				directoryPath = Directory.GetParent(candidate)?.FullName ?? string.Empty;
 
 			if (string.IsNullOrWhiteSpace(directoryPath))
 			{
-				MessageBox.Show($"The following directory (or file's directory) either does not exist anymore, you don't have permissions to access it, or its path is greater than 260 characters, so it cannot be opened.{Environment.NewLine}{Environment.NewLine}{SelectedPath.Path}", "Cannot Open Directory");
+				MessageBox.Show(
+					$"The following directory (or file's directory) either does not exist anymore, you don't have permissions to access it, or its path is greater than 260 characters, so it cannot be opened.{Environment.NewLine}{Environment.NewLine}{candidate}",
+					"Cannot Open Directory");
 			}
 			else
 			{
-				Process.Start(directoryPath);
+				Process.Start(new ProcessStartInfo
+				{
+					FileName = directoryPath,
+					UseShellExecute = true
+				});
 			}
 		}
 
-		/// <summary>
-		/// Sets the state of UI controls based on the provided search options
-		/// </summary>
 		protected internal void SetUIControlsFromSearchOptions(PathLengthSearchOptions argSearchOptions)
 		{
 			txtRootDirectory.Text = argSearchOptions.RootDirectory;
@@ -441,38 +414,118 @@ namespace PathLengthCheckerGUI
 				chkReplaceRootDirectory.IsChecked = true;
 			}
 			chkUrlEncodePaths.IsChecked = argSearchOptions.UrlEncodePaths;
-
-			numMinPathLength.Value = argSearchOptions.MinimumPathLength;
-			numMaxPathLength.Value = argSearchOptions.MaximumPathLength;
+			numMinPathLength.Text = argSearchOptions.MinimumPathLength.ToString();
+			numMaxPathLength.Text = argSearchOptions.MaximumPathLength.ToString();
+			cmbDisplayMode.SelectedItem = argSearchOptions.DisplayMode;
+			chkStripPrefixOnCopy.IsChecked = argSearchOptions.StripPrefixOnExport;
+			if (!string.IsNullOrEmpty(argSearchOptions.StripPrefixText))
+				txtStripPrefix.Text = argSearchOptions.StripPrefixText;
 		}
 
 		private void btnResetAllOptions_Click(object sender, RoutedEventArgs e)
 		{
-			ResetAllUiSearchOptionsToDefaultValues();
-			ResetGridSorting();
-		}
-
-		private void ResetAllUiSearchOptionsToDefaultValues()
-		{
-			// Values specified here should match the default values in the Properties\Settings.settings file.
-
 			txtRootDirectory.Text = string.Empty;
 			txtSearchPattern.Text = string.Empty;
-
-			numMinPathLength.Value = 0;
-			numMaxPathLength.Value = PathLengthSearchOptions.MaximumPathLengthMaxValue;
-
+			numMinPathLength.Text = "0";
+			numMaxPathLength.Text = PathLengthSearchOptions.MaximumPathLengthMaxValue.ToString();
 			chkIncludeSubdirectories.IsChecked = true;
 			cmbTypesToInclude.SelectedValue = FileSystemTypes.All;
-
 			txtReplaceRootDirectory.Text = string.Empty;
 			chkReplaceRootDirectory.IsChecked = false;
 			chkUrlEncodePaths.IsChecked = false;
+			cmbDisplayMode.SelectedItem = PathDisplayMode.Destination;
+			chkStripPrefixOnCopy.IsChecked = true;
+			txtStripPrefix.Text = string.Empty;
+			chkIncludeLengthsOnCopy.IsChecked = true;
 		}
 
-		private void ResetGridSorting()
+		private void btnOneDrivePreset_Click(object sender, RoutedEventArgs e)
 		{
-			SetGridColumnSortDescriptions(Enumerable.Empty<SortDescription>());
+			numMinPathLength.Text = PathLengthSearchOptions.OneDriveMaxPathLength.ToString();
+			numMaxPathLength.Text = PathLengthSearchOptions.MaximumPathLengthMaxValue.ToString();
+			cmbDisplayMode.SelectedItem = PathDisplayMode.Destination;
+			chkStripPrefixOnCopy.IsChecked = true;
+			if (chkReplaceRootDirectory.IsChecked == true && !string.IsNullOrWhiteSpace(txtReplaceRootDirectory.Text))
+			{
+				if (string.IsNullOrWhiteSpace(txtStripPrefix.Text))
+					txtStripPrefix.Text = txtReplaceRootDirectory.Text.Trim();
+			}
+			chkIncludeLengthsOnCopy.IsChecked = true;
+			MessageBox.Show(
+				"OneDrive preset applied:\n" +
+				$"- Min path length = {PathLengthSearchOptions.OneDriveMaxPathLength}\n" +
+				"- Display = Destination (mock path)\n" +
+				"- Strip prefix when copying = ON\n\n" +
+				"Set the destination replacement to the future OneDrive path, scan, then Copy/Export for the client.",
+				"OneDrive preset");
+		}
+
+		private void Window_DragOver(object sender, DragEventArgs e)
+		{
+			if (e.Data.GetDataPresent(DataFormats.FileDrop))
+				e.Effects = DragDropEffects.Copy;
+			else
+				e.Effects = DragDropEffects.None;
+			e.Handled = true;
+		}
+
+		private void Window_Drop(object sender, DragEventArgs e)
+		{
+			if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+			if (e.Data.GetData(DataFormats.FileDrop) is not string[] files || files.Length == 0) return;
+			var path = files[0];
+			if (Directory.Exists(path))
+			{
+				txtRootDirectory.Text = path;
+			}
+		}
+
+		private void ApplySettingsToUi(UiSettings s)
+		{
+			Width = s.WindowWidth > 200 ? s.WindowWidth : Width;
+			Height = s.WindowHeight > 200 ? s.WindowHeight : Height;
+			if (s.WindowLeft >= 0) Left = s.WindowLeft;
+			if (s.WindowTop >= 0) Top = s.WindowTop;
+			if (Enum.TryParse(s.WindowState, out WindowState ws))
+				WindowState = ws;
+
+			txtRootDirectory.Text = s.RootDirectory ?? string.Empty;
+			chkReplaceRootDirectory.IsChecked = s.ReplaceRootDirectory;
+			txtReplaceRootDirectory.Text = s.RootDirectoryReplacementText ?? string.Empty;
+			chkIncludeSubdirectories.IsChecked = s.IncludeSubdirectories;
+			if (Enum.TryParse(s.TypesToInclude, out FileSystemTypes types))
+				cmbTypesToInclude.SelectedItem = types;
+			numMinPathLength.Text = s.MinPathLength.ToString();
+			numMaxPathLength.Text = s.MaxPathLength.ToString();
+			txtSearchPattern.Text = s.SearchPattern ?? string.Empty;
+			chkUrlEncodePaths.IsChecked = s.UrlEncodePaths;
+			if (Enum.TryParse(s.DisplayMode, out PathDisplayMode mode))
+				cmbDisplayMode.SelectedItem = mode;
+			chkStripPrefixOnCopy.IsChecked = s.StripPrefixOnCopy;
+			txtStripPrefix.Text = s.StripPrefixText ?? string.Empty;
+			chkIncludeLengthsOnCopy.IsChecked = s.IncludeLengthsOnCopy;
+		}
+
+		private void SaveUiToSettings()
+		{
+			_settings.WindowWidth = Width;
+			_settings.WindowHeight = Height;
+			_settings.WindowLeft = Left;
+			_settings.WindowTop = Top;
+			_settings.WindowState = WindowState.ToString();
+			_settings.RootDirectory = txtRootDirectory.Text;
+			_settings.ReplaceRootDirectory = chkReplaceRootDirectory.IsChecked ?? false;
+			_settings.RootDirectoryReplacementText = txtReplaceRootDirectory.Text;
+			_settings.IncludeSubdirectories = chkIncludeSubdirectories.IsChecked ?? true;
+			_settings.TypesToInclude = (cmbTypesToInclude.SelectedItem as FileSystemTypes?)?.ToString() ?? nameof(FileSystemTypes.All);
+			if (int.TryParse(numMinPathLength.Text, out var min)) _settings.MinPathLength = min;
+			if (int.TryParse(numMaxPathLength.Text, out var max)) _settings.MaxPathLength = max;
+			_settings.SearchPattern = txtSearchPattern.Text;
+			_settings.UrlEncodePaths = chkUrlEncodePaths.IsChecked ?? false;
+			_settings.DisplayMode = (cmbDisplayMode.SelectedItem as PathDisplayMode?)?.ToString() ?? nameof(PathDisplayMode.Destination);
+			_settings.StripPrefixOnCopy = chkStripPrefixOnCopy.IsChecked ?? true;
+			_settings.StripPrefixText = txtStripPrefix.Text;
+			_settings.IncludeLengthsOnCopy = chkIncludeLengthsOnCopy.IsChecked ?? true;
 		}
 	}
 }

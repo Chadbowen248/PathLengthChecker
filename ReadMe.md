@@ -1,53 +1,103 @@
-# Path Length Checker Description
+# Path Length Checker (OneDrive migration fork)
 
-Path Length Checker is a stand-alone app that allows you to specify a root (i.e. starting) directory, and it gives you back a list of all paths (i.e. files and directories) in that root directory and their lengths.
-It includes features such as pattern matching and min/max length constraints, as well as the ability to specify a string that should replace the root directory in the results brought back, allowing you to quickly see path lengths if you were to move the files/folders to another location.
+Stand-alone tool that lists files and directories under a starting path and reports each path's character length.
 
-Download it from [the Releases page](https://github.com/deadlydog/PathLengthChecker/releases).
+This repository is a fork of [deadlydog/PathLengthChecker](https://github.com/deadlydog/PathLengthChecker) (MIT), modernized for **.NET 10** with a cleaner UI and features aimed at **AD file-share → OneDrive migrations**.
 
-If you enjoy this project, consider giving it a GitHub star ⭐ to show your support.
+## Why this fork?
 
-## Running via the GUI (Graphical User Interface)
+When clients have used deep, verbose folder names on a file share, paths often exceed OneDrive's **400-character** limit after migration. You need to:
 
-To run the Path Length Checker using the GUI, run the `PathLengthCheckerGUI.exe`.
+1. Measure lengths **as they will look under the future OneDrive destination** (mock the destination prefix).
+2. Still return only (or especially) the paths that would **blow the limit**.
+3. Hand the list to the client so **they** can rename/shorten folders.
+4. Avoid showing noise like `C:\Users\...\OneDrive - Tenant - General\` in the client-facing list.
 
-Once the app is open, simply provide the `Starting Directory` you want it to search and press the large `Get Path Lengths...` button.
+Upstream already supported **Replace the Starting Directory in the returned paths** (critical for mock destination lengths). This fork keeps that, and adds:
 
-You can also drag-and-drop a directory from File Explorer onto the `PathLengthCheckerGUI.exe` file to have it open up the application and search the directory automatically.
+- **Original path** kept separately from the **scored (length) path**
+- **Display modes** after scan (Destination / Relative / Original) without re-scanning
+- **Strip prefix when copying/exporting** (client handoff)
+- **Export to file** (.csv / .txt)
+- **OneDrive preset** (min length 400, strip-on-copy, destination display)
+- Modernized WPF UI
 
-![Path Length Checker screenshot](docs/Images/PathLengthChecker.png)
+## Quick start (GUI)
 
-## Running via the Command Line
+1. Build or download `PathLengthCheckerGUI`.
+2. Set **Starting directory** to the share (or local copy) to scan.
+3. Enable **Replace the Starting Directory...** and set the future OneDrive path, e.g.  
+   `C:\Users\jdoe\OneDrive - Contoso\General`
+4. Click **OneDrive preset (400)** (or set Min length to `400`).
+5. Click **Get path lengths**.
+6. Results are sorted longest-first. **Length** is the full destination/mock path length.
+7. Leave **Strip prefix when copying/exporting** checked (defaults to the destination prefix).
+8. **Copy paths** or **Export…** and send the list to the client.
 
-The `PathLengthChecker.exe` is the command-line alternative to the GUI. Simply run it without any parameters to see what parameters you can pass to it.
+Clients then see paths like:
 
-`PathLengthCheckerGUI.exe` also supports the same command-line parameter syntax. Additionally, specifying the target directory alone as the only argument is supported and will begin a search on the supplied path using defaults. This is useful for launching the GUI application from other programs, such as a Windows Explorer context menu action.
+```text
+412: Clients\Acme Corp\Projects\2024\Very Long Project Name\...\file.pdf
+```
 
-## Search Pattern
+instead of:
 
-The `Search Pattern` parameter is used to match against specific file/directory names.
-It is not case sensitive, and it supports the wildcards (`*`) for zero or more characters, and (`?`) for zero or one character.
+```text
+412: C:\Users\jdoe\OneDrive - Contoso\General\Clients\Acme Corp\...
+```
 
-Examples:
+## Command line
 
-- `test.txt` matches only files named "test.txt".
-- `test` matches any directory named "test", as well as any files named "test" that do not have an extension.
-- `test*` matches any file or directory whose name begins with "test".
-- `*txt` matches any files with a ".txt" extension, as well as any directory whose name ends in "txt".
-- `*test*` matches any file or directory that contains "test" anywhere in the name or extension.
+```bash
+PathLengthChecker RootDirectory="\\fs\DeptShare" \
+  RootDirectoryReplacement="C:\Users\jdoe\OneDrive - Contoso\General" \
+  MinLength=400 \
+  DisplayMode=Destination \
+  StripPrefix="C:\Users\jdoe\OneDrive - Contoso\General" \
+  ExportFile="over-limit.txt"
+```
 
-For more information on the search pattern syntax, see [the official Microsoft documentation](https://docs.microsoft.com/en-us/dotnet/api/system.io.directory.enumeratefilesystementries?view=net-5.0#System_IO_Directory_EnumerateFileSystemEntries_System_String_System_String_).
+Parameters (subset; run with no args / bad args for full help):
 
-## Running via PowerShell
+| Parameter | Meaning |
+|---|---|
+| `RootDirectory` | Starting directory (required) |
+| `RootDirectoryReplacement` | Mock destination prefix for **length** |
+| `MinLength` / `MaxLength` | Filter by scored length |
+| `TypesToInclude` | `OnlyFiles` / `OnlyDirectories` / `All` |
+| `SearchPattern` | Wildcard (`*`, `?`) |
+| `DisplayMode` | `Destination` / `Relative` / `Original` |
+| `StripPrefix` | Strip this prefix from printed paths (does not change Length) |
+| `ExportFile` | Write results to a file |
+| `UrlEncodePaths` | URL-encode scored paths |
+| `Output` | `Paths` / `MinLength` / `MaxLength` |
 
-If you are looking for a PowerShell equivalent of this tool, you can use [this PowerShell script](tools/GetPathLengths.ps1) that offers similar functionality.
+## Build
+
+Requires the .NET 10 SDK (library/tests) and Windows to build/run the WPF GUI.
+
+```bash
+# Library + tests (works on macOS/Linux/Windows)
+dotnet test src/PathLengthChecker.Tests/PathLengthChecker.Tests.csproj -c Release
+
+# GUI (Windows only)
+dotnet build src/PathLengthCheckerGUI/PathLengthCheckerGUI.csproj -c Release
+
+# Publish for a tech USB stick (run on Windows)
+./build/publish-win-x64.sh
+```
+
+## Architecture notes
+
+- **Scan once** → store `OriginalPath`
+- **Score path** = original with optional root replacement + optional URL encode → **Length**
+- **Display / export path** can be destination, relative, or original; optional **strip prefix** for client lists
+- Changing display mode or strip options does **not** require a re-scan
+
+## License and attribution
+
+MIT. Original work by Daniel Schroeder / deadlydog. See [License.md](License.md).
 
 ## Changelog
 
-See what's changed in the application over time by viewing [the changelog](Changelog.md).
-
-## Donate
-
-Buy my dogs a new chew toy for providing this application open source and for free :)
-
-[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=YVQNLE2GT4R7J)
+See [Changelog.md](Changelog.md).

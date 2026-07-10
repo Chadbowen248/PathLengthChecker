@@ -1,4 +1,4 @@
-﻿namespace PathLengthChecker
+namespace PathLengthChecker
 {
 	public enum OutputTypes
 	{

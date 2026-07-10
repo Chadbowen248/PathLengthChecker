@@ -1,4 +1,4 @@
-﻿using SearchOption = System.IO.SearchOption;
+using SearchOption = System.IO.SearchOption;
 
 namespace PathLengthChecker
 {
@@ -28,13 +28,13 @@ namespace PathLengthChecker
 		public FileSystemTypes TypesToGet = FileSystemTypes.All;
 
 		/// <summary>
-		/// The directory that the root directory should be replaced with in the found paths.
-		/// Specify null to leave the original paths unmodified.
+		/// The directory that the root directory should be replaced with in the scored paths.
+		/// Specify null to leave the original paths unmodified for scoring.
 		/// </summary>
-		public string RootDirectoryReplacement = null;
+		public string? RootDirectoryReplacement = null;
 
 		/// <summary>
-		/// If true the returned paths will be URL encoded, such as replacing spaces with "%20".
+		/// If true the scored paths will be URL encoded, such as replacing spaces with "%20".
 		/// </summary>
 		public bool UrlEncodePaths = false;
 	}

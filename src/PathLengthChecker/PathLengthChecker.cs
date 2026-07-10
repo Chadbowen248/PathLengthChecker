@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -11,45 +11,61 @@ namespace PathLengthChecker
 	public static class PathLengthChecker
 	{
 		/// <summary>
-		/// Gets the paths with lengths.
+		/// Gets the paths with lengths. Length is based on the scored path (after root replacement / URL encode).
+		/// OriginalPath is preserved for display modes and Explorer open.
 		/// </summary>
-		/// <param name="options">The options.</param>
 		public static IEnumerable<PathInfo> GetPathsWithLengths(PathLengthSearchOptions options, CancellationToken cancellationToken)
 		{
-			foreach (var path in RetrievePaths(options, cancellationToken))
+			foreach (var pathInfo in RetrievePaths(options, cancellationToken))
 			{
-				yield return new PathInfo() { Path = path };
+				yield return pathInfo;
 			}
 		}
 
 		/// <summary>
 		/// Gets all of the paths, along with their lengths, as a string.
+		/// Honors DisplayMode / StripPrefix export options when set.
 		/// </summary>
-		/// <param name="options">The options.</param>
 		public static string GetPathsWithLengthsAsString(PathLengthSearchOptions options, CancellationToken cancellationToken)
 		{
-			var text = new StringBuilder();
-			foreach (var path in GetPathsWithLengths(options, cancellationToken))
-			{
-				text.AppendLine($"{path.Length}: {path.Path}");
-			}
-			return text.ToString();
+			var paths = GetPathsWithLengths(options, cancellationToken);
+			return PathFormatter.FormatPathsAsPlainText(
+				paths,
+				options.RootDirectory,
+				options.DisplayMode,
+				includeLength: true,
+				stripPrefix: options.StripPrefixOnExport,
+				stripPrefixText: options.StripPrefixText);
 		}
 
-		private static IEnumerable<string> RetrievePaths(PathLengthSearchOptions options, CancellationToken cancellationToken)
+		private static IEnumerable<PathInfo> RetrievePaths(PathLengthSearchOptions options, CancellationToken cancellationToken)
 		{
-			// Make sure valid lengths were supplied
 			if (options.MinimumPathLength > options.MaximumPathLength && options.MinimumPathLength >= 0 && options.MaximumPathLength >= 0)
 				throw new MinPathLengthGreaterThanMaxPathLengthException();
 
-			// Get the paths.
-			var paths = PathRetriever.GetPaths(options, cancellationToken);
+			var originalPaths = PathRetriever.GetPaths(options, cancellationToken);
 
-			// Filter out paths that don't match the Minimum Path Length
-			foreach (var path in paths.Where(path => path.Length >= options.MinimumPathLength &&
-				(options.MaximumPathLength <= 0 || path.Length <= options.MaximumPathLength)))
+			foreach (var original in originalPaths)
 			{
-				yield return path;
+				if (cancellationToken.IsCancellationRequested)
+					yield break;
+
+				var scorePath = PathFormatter.GetScorePath(original, options);
+				var length = scorePath.Length;
+
+				if (length < options.MinimumPathLength)
+					continue;
+
+				if (options.MaximumPathLength > 0 && length > options.MaximumPathLength)
+					continue;
+
+				var pathInfo = new PathInfo
+				{
+					OriginalPath = original,
+					Path = scorePath
+				};
+				pathInfo.DisplayPath = PathFormatter.GetDisplayPath(pathInfo, options.RootDirectory, options.DisplayMode);
+				yield return pathInfo;
 			}
 		}
 	}
