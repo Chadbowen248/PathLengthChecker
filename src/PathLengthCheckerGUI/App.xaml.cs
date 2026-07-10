@@ -6,7 +6,7 @@ using PathLengthChecker;
 
 namespace PathLengthCheckerGUI
 {
-	public partial class App : Application
+	public partial class App : System.Windows.Application
 	{
 		public App() : base()
 		{
@@ -43,7 +43,7 @@ namespace PathLengthCheckerGUI
 				messageBoxButtons = MessageBoxButton.YesNo;
 			}
 
-			if (MessageBox.Show(messageBoxMessage, messageBoxTitle, messageBoxButtons) == MessageBoxResult.Yes)
+			if (System.Windows.MessageBox.Show(messageBoxMessage, messageBoxTitle, messageBoxButtons) == MessageBoxResult.Yes)
 			{
 				Current.Shutdown();
 			}
@@ -75,7 +75,7 @@ namespace PathLengthCheckerGUI
 					string title = "Incorrect arguments";
 					string message = "Incorrectly-formatted arguments were passed to the program.\n\n";
 					message += ex.Message + "\n\n" + ArgumentParser.ArgumentUsage;
-					MessageBox.Show(message, title);
+					System.Windows.MessageBox.Show(message, title);
 				}
 			}
 
