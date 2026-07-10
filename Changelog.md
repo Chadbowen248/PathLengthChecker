@@ -4,6 +4,11 @@
 
 Fork of deadlydog/PathLengthChecker, modernized for client-facing OneDrive path cleanup workflows.
 
+### Packaging
+
+- `build/build-release.ps1` — one-shot Windows publish (self-contained single-file GUI + CLI + zips).
+- GitHub Actions workflow **Build and Release** publishes win-x64 zips on `v*` tags (and manual workflow_dispatch).
+
 ### Features
 
 - .NET 10 SDK-style projects (library, CLI, WPF GUI, xUnit tests).

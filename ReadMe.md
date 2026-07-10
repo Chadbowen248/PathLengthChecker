@@ -22,9 +22,34 @@ Upstream already supported **Replace the Starting Directory in the returned path
 - **OneDrive preset** (min length 400, strip-on-copy, destination display)
 - Modernized WPF UI
 
+## Download (like the original release .exe)
+
+Prebuilt Windows zips are on the **[Releases](https://github.com/Chadbowen248/PathLengthChecker/releases)** page.
+
+1. Download **PathLengthCheckerGUI-win-x64.zip** (or the full **PathLengthChecker-win-x64.zip**).
+2. Unzip.
+3. Double-click **`PathLengthCheckerGUI.exe`**.
+
+These builds are **self-contained** (no separate .NET install needed on the PC you run it on).
+
+### Build a release yourself (Windows)
+
+```powershell
+# From the repo root, with .NET 10 SDK installed:
+.\build\build-release.ps1
+```
+
+Output:
+
+- `artifacts\gui-win-x64\PathLengthCheckerGUI.exe` — double-click to run  
+- `artifacts\cli-win-x64\PathLengthChecker.exe` — CLI  
+- matching `.zip` files next to those folders  
+
+GitHub Actions also builds on every `v*` tag (and via **Actions → Build and Release → Run workflow**).
+
 ## Quick start (GUI)
 
-1. Build or download `PathLengthCheckerGUI`.
+1. Download from Releases **or** build with `.\build\build-release.ps1`.
 2. Set **Starting directory** to the share (or local copy) to scan.
 3. Enable **Replace the Starting Directory...** and set the future OneDrive path, e.g.  
    `C:\Users\jdoe\OneDrive - Contoso\General`
@@ -74,18 +99,29 @@ Parameters (subset; run with no args / bad args for full help):
 
 ## Build
 
-Requires the .NET 10 SDK (library/tests) and Windows to build/run the WPF GUI.
+Requires the **.NET 10 SDK**. The WPF GUI must be built on **Windows**.
+
+```powershell
+# Recommended: portable release binaries (Windows)
+.\build\build-release.ps1
+```
 
 ```bash
-# Library + tests (works on macOS/Linux/Windows)
+# Library + tests (macOS/Linux/Windows)
 dotnet test src/PathLengthChecker.Tests/PathLengthChecker.Tests.csproj -c Release
 
-# GUI (Windows only)
+# GUI build only (Windows)
 dotnet build src/PathLengthCheckerGUI/PathLengthCheckerGUI.csproj -c Release
-
-# Publish for a tech USB stick (run on Windows)
-./build/publish-win-x64.sh
 ```
+
+### Create a GitHub Release from CI
+
+```bash
+git tag v2.0.0
+git push origin v2.0.0
+```
+
+Or: GitHub → **Actions** → **Build and Release** → **Run workflow** → enter version `2.0.0`.
 
 ## Architecture notes
 
