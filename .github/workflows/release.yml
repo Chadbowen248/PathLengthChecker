@@ -114,7 +114,7 @@ jobs:
             - **PathLengthChecker-win-x64.zip** — both (GUI + CLI folders)
 
             ### OneDrive migration tip
-            Set **Replace the Starting Directory** to the future OneDrive path, use the **OneDrive preset (400)**, then enable **Strip prefix when copying/exporting** before giving the list to a client.
+            Set **Replace the Starting Directory** to the future OneDrive path, use the **Windows path preset (240)** for shortcut-safe limits, then enable **Strip prefix when copying/exporting** before giving the list to a client.
           files: |
             artifacts/PathLengthCheckerGUI-win-x64.zip
             artifacts/PathLengthChecker-CLI-win-x64.zip

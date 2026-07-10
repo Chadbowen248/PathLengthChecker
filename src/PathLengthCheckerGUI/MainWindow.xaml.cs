@@ -255,10 +255,10 @@ namespace PathLengthCheckerGUI
 
 			int shortestPathLength = Paths.Count > 0 ? Paths.Min(p => p.Length) : 0;
 			int longestPathLength = Paths.Count > 0 ? Paths.Max(p => p.Length) : 0;
-			int over400 = Paths.Count(p => p.Length > PathLengthSearchOptions.OneDriveMaxPathLength);
+			int overSafe = Paths.Count(p => p.Length > PathLengthSearchOptions.WindowsSafePathLength);
 			txtMinAndMaxPathLengths.Text =
 				$"Shortest: {shortestPathLength}, Longest: {longestPathLength} characters" +
-				(over400 > 0 ? $"  |  {over400} over OneDrive 400-char limit" : string.Empty);
+				(overSafe > 0 ? $"  |  {overSafe} over {PathLengthSearchOptions.WindowsSafePathLength}-char Windows-safe limit" : string.Empty);
 		}
 
 		private void cmbDisplayMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -439,7 +439,8 @@ namespace PathLengthCheckerGUI
 
 		private void btnOneDrivePreset_Click(object sender, RoutedEventArgs e)
 		{
-			numMinPathLength.Text = PathLengthSearchOptions.OneDriveMaxPathLength.ToString();
+			// 240: safe for Windows shortcuts / classic path limits (255 common ceiling; OneDrive cloud ~400).
+			numMinPathLength.Text = PathLengthSearchOptions.WindowsSafePathLength.ToString();
 			numMaxPathLength.Text = PathLengthSearchOptions.MaximumPathLengthMaxValue.ToString();
 			cmbDisplayMode.SelectedItem = PathDisplayMode.Destination;
 			chkStripPrefixOnCopy.IsChecked = true;
@@ -450,12 +451,13 @@ namespace PathLengthCheckerGUI
 			}
 			chkIncludeLengthsOnCopy.IsChecked = true;
 			MessageBox.Show(
-				"OneDrive preset applied:\n" +
-				$"- Min path length = {PathLengthSearchOptions.OneDriveMaxPathLength}\n" +
+				"Windows path preset applied:\n" +
+				$"- Min path length = {PathLengthSearchOptions.WindowsSafePathLength} (safe under 255 for shortcuts)\n" +
 				"- Display = Destination (mock path)\n" +
 				"- Strip prefix when copying = ON\n\n" +
-				"Set the destination replacement to the future OneDrive path, scan, then Copy/Export for the client.",
-				"OneDrive preset");
+				"Set the destination replacement to the future OneDrive path, scan, then Copy/Export for the client.\n" +
+				$"(OneDrive cloud alone can allow ~{PathLengthSearchOptions.OneDriveCloudPathLength}; raise Min length if that is all you care about.)",
+				"Windows path preset");
 		}
 
 		private void Window_DragOver(object sender, DragEventArgs e)

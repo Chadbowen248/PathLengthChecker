@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Default Windows path preset min length is **240** (shortcut-safe under 255), not 400. OneDrive cloud ~400 remains documented as an optional higher ceiling.
+
 ## v2.0.0 — OneDrive migration fork
 
 Fork of deadlydog/PathLengthChecker, modernized for client-facing OneDrive path cleanup workflows.
@@ -14,7 +18,7 @@ Fork of deadlydog/PathLengthChecker, modernized for client-facing OneDrive path 
 - .NET 10 SDK-style projects (library, CLI, WPF GUI, xUnit tests).
 - `PathInfo` keeps **OriginalPath** separate from scored **Path** (length).
 - New `PathFormatter` for root replacement, relative paths, strip-prefix, plain/CSV export.
-- GUI: modern layout, OneDrive preset (min length 400), display mode dropdown (Destination / Relative / Original) without re-scan.
+- GUI: modern layout, Windows path preset (min length **240** for shortcut-safe limits; cloud OneDrive ~400 is optional), display mode dropdown (Destination / Relative / Original) without re-scan.
 - GUI: **Strip prefix when copying/exporting** so clients do not see `C:\Users\...\OneDrive - ...\` noise.
 - GUI: Export to `.csv` / `.txt`; copy plain or CSV; default sort longest-first.
 - CLI: `DisplayMode`, `StripPrefix` / `CopyStripPrefix`, `ExportFile`.

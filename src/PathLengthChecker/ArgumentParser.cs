@@ -23,7 +23,7 @@ namespace PathLengthChecker
 			"ExportFile= | Optional file path to write results instead of only stdout.\n" +
 			"\n" +
 			"Example: PathLengthChecker.exe RootDirectory=\"C:\\MyDir\" TypesToInclude=OnlyFiles SearchPattern=*FindThis* MinLength=25\n" +
-			"OneDrive example: PathLengthChecker.exe RootDirectory=\"\\\\fs\\Share\" RootDirectoryReplacement=\"C:\\Users\\jdoe\\OneDrive - Contoso\\General\" MinLength=400 DisplayMode=Destination StripPrefix=\"C:\\Users\\jdoe\\OneDrive - Contoso\\General\"";
+			"OneDrive/Windows example: PathLengthChecker.exe RootDirectory=\"\\\\fs\\Share\" RootDirectoryReplacement=\"C:\\Users\\jdoe\\OneDrive - Contoso\\General\" MinLength=240 DisplayMode=Destination StripPrefix=\"C:\\Users\\jdoe\\OneDrive - Contoso\\General\"";
 
 		/// <summary>
 		/// Parses the specified args array into a PathLengthSearchOptions object instance.

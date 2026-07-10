@@ -20,10 +20,17 @@ namespace PathLengthChecker
 		public const int MaximumPathLengthMaxValue = 999999;
 
 		/// <summary>
-		/// Microsoft OneDrive / SharePoint documented max path length (characters).
-		/// Use as a MinPathLength preset when finding paths that would exceed the limit.
+		/// Safe path length when destinations will also be used as Windows shortcuts / classic paths.
+		/// Windows MAX_PATH is 260; many tools treat ~255 as the ceiling. 240 leaves headroom.
+		/// (OneDrive/SharePoint cloud alone can allow ~400; raise MinLength manually if you only care about cloud.)
 		/// </summary>
-		public const int OneDriveMaxPathLength = 400;
+		public const int WindowsSafePathLength = 240;
+
+		/// <summary>
+		/// Microsoft OneDrive / SharePoint approximate full-path ceiling (characters).
+		/// Prefer <see cref="WindowsSafePathLength"/> for the default preset when shortcuts are involved.
+		/// </summary>
+		public const int OneDriveCloudPathLength = 400;
 
 		/// <summary>
 		/// Indicates the type of result that is output once the search completes.

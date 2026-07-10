@@ -48,9 +48,9 @@
         <TextBlock Text="Scan a share, mock the OneDrive destination, and export a clean cleanup list for clients."
                    Foreground="#64748B" TextWrapping="Wrap" Margin="0,2,0,0"/>
       </StackPanel>
-      <Button DockPanel.Dock="Right" Content="OneDrive preset (400)" Style="{StaticResource SecondaryButton}"
+      <Button DockPanel.Dock="Right" Content="Windows path preset (240)" Style="{StaticResource SecondaryButton}"
               Click="btnOneDrivePreset_Click"
-              ToolTip="Sets Min Path Length to 400 (OneDrive/SharePoint limit), enables strip-on-copy, destination display, and sorts longest first."
+              ToolTip="Sets Min Path Length to 240 (safe for Windows shortcuts / classic path limits; under 255). Also enables strip-on-copy and destination display. OneDrive cloud alone can allow ~400 if you only care about that."
               VerticalAlignment="Center" Margin="12,0,0,0"/>
     </DockPanel>
 
@@ -103,7 +103,7 @@
           <CheckBox Grid.Column="3" Name="chkIncludeSubdirectories" Content="Include subdirectories"
                     ToolTip="Search all subdirectories under the starting directory."/>
           <TextBlock Grid.Column="5" Text="Min length" VerticalAlignment="Center" Margin="0,0,6,0"
-                     ToolTip="Only return paths whose scored length is at least this many characters. Use 400 for OneDrive over-limit list."/>
+                     ToolTip="Only return paths whose scored length is at least this many characters. Use 240 for Windows-safe / shortcut cleanup lists (255 is a common hard limit)."/>
           <TextBox Grid.Column="6" Name="numMinPathLength" Text="0" Width="70"/>
           <TextBlock Grid.Column="8" Text="Max length" VerticalAlignment="Center" Margin="0,0,6,0"
                      ToolTip="Only return paths whose scored length is at most this many characters. Use 999999 for no max."/>

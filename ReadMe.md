@@ -6,7 +6,7 @@ This repository is a fork of [deadlydog/PathLengthChecker](https://github.com/de
 
 ## Why this fork?
 
-When clients have used deep, verbose folder names on a file share, paths often exceed OneDrive's **400-character** limit after migration. You need to:
+When clients have used deep, verbose folder names on a file share, paths often break after migration — especially when used as **Windows shortcuts** (practical limit **~255** characters; we use **240** for safety). OneDrive cloud alone can allow ~400, but that is not enough if Windows still has to open the path. You need to:
 
 1. Measure lengths **as they will look under the future OneDrive destination** (mock the destination prefix).
 2. Still return only (or especially) the paths that would **blow the limit**.
@@ -19,7 +19,7 @@ Upstream already supported **Replace the Starting Directory in the returned path
 - **Display modes** after scan (Destination / Relative / Original) without re-scanning
 - **Strip prefix when copying/exporting** (client handoff)
 - **Export to file** (.csv / .txt)
-- **OneDrive preset** (min length 400, strip-on-copy, destination display)
+- **Windows path preset** (min length **240** for shortcut-safe cleanup lists, strip-on-copy, destination display)
 - Modernized WPF UI
 
 ## Download (like the original release .exe)
@@ -53,7 +53,7 @@ GitHub Actions also builds on every `v*` tag (and via **Actions → Build and Re
 2. Set **Starting directory** to the share (or local copy) to scan.
 3. Enable **Replace the Starting Directory...** and set the future OneDrive path, e.g.  
    `C:\Users\jdoe\OneDrive - Contoso\General`
-4. Click **OneDrive preset (400)** (or set Min length to `400`).
+4. Click **Windows path preset (240)** (or set Min length to `240`).
 5. Click **Get path lengths**.
 6. Results are sorted longest-first. **Length** is the full destination/mock path length.
 7. Leave **Strip prefix when copying/exporting** checked (defaults to the destination prefix).
@@ -76,7 +76,7 @@ instead of:
 ```bash
 PathLengthChecker RootDirectory="\\fs\DeptShare" \
   RootDirectoryReplacement="C:\Users\jdoe\OneDrive - Contoso\General" \
-  MinLength=400 \
+  MinLength=240 \
   DisplayMode=Destination \
   StripPrefix="C:\Users\jdoe\OneDrive - Contoso\General" \
   ExportFile="over-limit.txt"
